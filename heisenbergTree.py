@@ -35,10 +35,12 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch):
     for test in tqdm(testcase_batch):
 
         test = format_test_case(test, first)
-        
-        #For each string specified in the test case, perform Pauli propagation through the circuit and store the results
-        for pauli_string in test.keys():
+        num_strings = 0
 
+        #For each string specified in the test case, perform Pauli propagation through the circuit and store the results
+        for pauli_string, pauli_coeff in zip(test.keys(), test.values()):
+
+            num_strings += 1
             # Define the initial Pauli operator to track
             # Qiskit layout is right-to-left: 'IX' means X acts on Qubit 0, I acts on Qubit 1
             initial_pauli = SparsePauliOp(pauli_string)  
@@ -107,6 +109,7 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch):
                     #         instruction.evolve(pauli_in, q_indices): 1.0
                     #     }
 
+                    #TODO: Find a way to perform evolution on specific qubits instead of the entire 2^n x 2^n 
                     # # ============================
                     # # 3. FULL OPERATOR FALLBACK
                     # # ============================
@@ -142,10 +145,10 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch):
                     "edges": edges
                 }
 
-            operation_list = add_counts_to_linked_list(operation_list, transition_graph)
+            operation_list = add_counts_to_linked_list(operation_list, transition_graph, pauli_coeff)
 
         first = False
-        testcase_analysis = append_to_analysis(testcase_analysis, operation_list)
+        testcase_analysis = append_to_analysis(testcase_analysis, operation_list, num_strings)
         operation_list.reset()
 
     return testcase_analysis

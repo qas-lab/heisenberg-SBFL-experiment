@@ -213,7 +213,7 @@ def format_test_case(test, first):
 
     return test
 
-def add_counts_to_linked_list(operation_list, transition_graph):
+def add_counts_to_linked_list(operation_list, transition_graph, string_coeff):
     #Start at first gate in the inverse circuit
     checked_gate = operation_list.head.next
     idx = 1
@@ -229,20 +229,38 @@ def add_counts_to_linked_list(operation_list, transition_graph):
             if edge["from"] != edge["to"]:
                 checked_gate.count += edge["probability"]
         
+        checked_gate.count *= abs(string_coeff)
         idx += 1
         checked_gate = checked_gate.next
     
     return operation_list
 
-def append_to_analysis(testcase_analysis, operation_list):
+def append_to_analysis(testcase_analysis, operation_list, num_strings):
     node = operation_list.head
     gate_list = []
 
     while node:
-        gate_list.append(node.count)
+        gate_list.append(node.count/num_strings)
         node = node.next
         
     gate_list.append("fail")
     testcase_analysis = pd.concat([testcase_analysis, pd.DataFrame([gate_list], columns=testcase_analysis.columns)], ignore_index=True)
 
     return testcase_analysis
+
+def tarantula(testcase_analysis):
+    num_fail_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "fail"])
+    num_pass_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "pass"])
+    fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)
+    pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
+
+    tarantula_scores = (fail_counts/num_fail_tests)/((fail_counts/num_fail_tests)+(pass_counts/num_pass_tests))
+    return tarantula_scores
+
+def ochiai(testcase_analysis):
+    pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
+    fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)
+    num_fail_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "fail"])
+
+    ochiai_scores = fail_counts/np.sqrt(num_fail_tests*(fail_counts+pass_counts))
+    return ochiai_scores

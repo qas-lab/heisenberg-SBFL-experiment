@@ -1,6 +1,9 @@
-# SB-QOPS: Search-Based Quantum Program Testing via Commuting Pauli String
-This repository contains the code necessary to reproduce the results of SB-QOPS, excluding execution scripts on real computers of IBM, IQM, and Quantinuum.
-The processed results and raw results for all executions (Simulations and real computer executions are provided in the repository)
+# Heisenberg SBFL Experiment
+This repository serves as the code base for the UCCS QAS Lab's experiment with SBFL in the Heisenberg picture. This repository was forked and built upon the SB-QOPS framework, which can be found [here](https://github.com/AsmarMuqeet/SB-QOPS).
+
+# Placeholder Activity Diagram
+![Placeholder Activity Diagram](SBFL_assets/Placeholder%20Activity%20Diagram.png)
+
 # Installation
 The repository is only tested in a Linux environment since Qiskit AER GPU is only supported in linux
 
@@ -15,11 +18,6 @@ Steps:
     3  conda env create -f environment.yml
     4. conda activate sbqops 
 	
-
-# Results:
-The results folder contains the scripts and necessary files for producing the results of RQ1 and RQ3.
-The noise_result folder contains the scripts and files needed to produce the results for RQ2.
-Proprietary executions such as qnexus results and produced files are in the producedfile folder.
 # Evaluate new Circuit:
 ### To test new circuits
 
@@ -44,3 +42,6 @@ if __name__ == '__main__':
                 fitness = best_function
                 break
 ```
+
+# Acknowledgements
+We acknowledge and thank the authors of SB-QOPS Asmar Muqeet, Shaukat Ali, and Paolo Arcaini for their work and making their work open-source under the Apache 2.0 License
