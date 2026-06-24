@@ -29,6 +29,7 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch):
     
     testcase_analysis = create_global_test_dataframe(operation_list)
     transferRules = give_transfer_rules()
+    num_qubits = circuit_inverse.num_qubits
     identity_op = Operator.from_label("I" * num_qubits)
     first = True
 
@@ -44,7 +45,6 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch):
             # Define the initial Pauli operator to track
             # Qiskit layout is right-to-left: 'IX' means X acts on Qubit 0, I acts on Qubit 1
             initial_pauli = SparsePauliOp(pauli_string)  
-            num_qubits = circuit_inverse.num_qubits
 
             # This dictionary will store our automated history mapping
             # Format: { Step_Index: { "gate_type": gate_name, "pauli_strings": { "Pauli_String": Coefficient } } }
@@ -64,9 +64,6 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch):
             current_layer = {
                 initial_pauli.paulis[0].to_label(): 1.0  # Start with the initial Pauli having probability 1
             }
-
-            #Create the do-nothing operator that can be manipulated to act on specific bits
-            identity_op = Operator.from_label("I" * num_qubits)
 
             for step_idx, (instruction, qargs, cargs) in enumerate(circuit_inverse.data, start=1):
 
