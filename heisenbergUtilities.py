@@ -4,6 +4,7 @@ import numpy as np
 from qiskit.quantum_info import SparsePauliOp, Operator, Pauli, Clifford
 from qiskit.exceptions import QiskitError
 from qiskit import QuantumCircuit
+from pauli_prop import propagate_through_operator
 
 """
 This method loads a program from a QASM file. It was written and entirely belongs to the authors of SB-QOPS
@@ -19,160 +20,13 @@ def load_program(name,path):
     qc.remove_final_measurements()
     return qc.copy()
 
-def evolve_pauli_exact(pauli_label, unitary):
+def evolve_pauli_exact(pauli_label, gate):
     """Return exact Pauli expansion after conjugation"""
-    op = SparsePauliOp(pauli_label).to_operator()
-    evolved = unitary.adjoint().compose(op).compose(unitary)
-    sp = SparsePauliOp.from_operator(evolved).simplify()
+    evolution = propagate_through_operator(pauli_label, gate, atol=1e-4, frame='h', max_terms = 80, search_step=3)
 
     return {
-        p.to_label(): c for p, c in zip(sp.paulis, sp.coeffs)
+        p.to_label(): c for p, c in zip(evolution.paulis, evolution.coeffs)
     }
-
-#Rules need verification
-def give_transfer_rules():
-    """
-    Pauli transfer rules for Clifford gates.
-    Format:
-        {gate: {input_pauli: [(output_pauli, coefficient), ...]}}
-    """
-
-    transferRules = {
-
-        # =========================
-        # 1-qubit Clifford gates
-        # =========================
-
-        "h": {
-            "I": [("I", 1)],
-            "X": [("Z", 1)],
-            "Y": [("Y", -1)],
-            "Z": [("X", 1)],
-        },
-
-        "s": {  # phase gate (your "p")
-            "I": [("I", 1)],
-            "X": [("Y", 1)],
-            "Y": [("X", -1)],
-            "Z": [("Z", 1)],
-        },
-
-        "x": {
-            "I": [("I", 1)],
-            "X": [("X", 1)],
-            "Y": [("Y", -1)],
-            "Z": [("Z", -1)],
-        },
-
-        "y": {
-            "I": [("I", 1)],
-            "X": [("X", -1)],
-            "Y": [("Y", 1)],
-            "Z": [("Z", -1)],
-        },
-
-        "z": {
-            "I": [("I", 1)],
-            "X": [("X", -1)],
-            "Y": [("Y", -1)],
-            "Z": [("Z", 1)],
-        },
-
-        # =========================
-        # 2-qubit Clifford gates
-        # Qiskit ordering: control, target
-        # =========================
-
-        "cx": {
-            "IX": [("IX", 1)],
-            "IY": [("ZY", 1)],
-            "IZ": [("ZZ", 1)],
-
-            "XI": [("XX", 1)],
-            "XX": [("XI", 1)],
-            "XY": [("XZ", 1)],
-            "XZ": [("XY", 1)],
-
-            "YI": [("YX", 1)],
-            "YX": [("YI", 1)],
-            "YY": [("YZ", 1)],
-            "YZ": [("YY", 1)],
-
-            "ZI": [("ZI", 1)],
-            "ZX": [("ZX", 1)],
-            "ZY": [("ZY", 1)],
-            "ZZ": [("ZZ", 1)],
-        },
-
-        "cz": {
-            "II": [("II", 1)],
-            "IZ": [("IZ", 1)],
-            "ZI": [("ZI", 1)],
-            "ZZ": [("ZZ", 1)],
-
-            "XI": [("XI", 1)],
-            "IX": [("IX", 1)],
-            "XX": [("XX", -1)],
-
-            "YI": [("YI", 1)],
-            "IY": [("IY", 1)],
-            "YY": [("YY", -1)],
-        },
-    }
-
-    return transferRules
-
-def try_transfer(gate_name, pauli_str, q_indices, num_qubits, transferRules):
-
-    # extract only relevant qubits
-    sub = extract_subpauli(pauli_str, q_indices, num_qubits)
-    print(sub)
-
-    gate_rules = transferRules[gate_name]
-
-    if sub not in gate_rules:
-        return {pauli_str: 1.0}
-
-    outputs = {}
-
-    for out_sub, coeff in gate_rules[sub]:
-
-        full_out = insert_subpauli(
-            list(pauli_str),
-            q_indices,
-            out_sub,
-            num_qubits
-        )
-        print(full_out)
-
-        outputs["".join(full_out)] = coeff
-
-    return outputs
-
-def is_instruction_clifford(inst):
-    try:
-        Clifford(inst)
-        return True
-    except QiskitError:
-        return False
-    
-def extract_subpauli(pauli_str, q_indices, num_qubits):
-    """Extract only gate-relevant qubits into a local string."""
-
-    return "".join(
-        pauli_str[num_qubits - 1 - q]
-        for q in q_indices
-    )
-
-
-def insert_subpauli(full_pauli, q_indices, sub_pauli, num_qubits):
-
-    full = list(full_pauli)
-
-    for i, q in enumerate(q_indices):
-        full[num_qubits - 1 - q] = sub_pauli[i]
-
-    return "".join(full)
 
 def create_single_test_dataframe(operation_list):
     node_list = []

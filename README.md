@@ -2,7 +2,7 @@
 This repository serves as the code base for the UCCS QAS Lab's experiment with SBFL in the Heisenberg picture. This repository was forked and built upon the SB-QOPS framework, which can be found [here](https://github.com/AsmarMuqeet/SB-QOPS).
 
 # Placeholder Activity Diagram
-![Placeholder Activity Diagram](SBFL_assets/Placeholder%20Activity%20Diagram.png)
+![Placeholder Activity Diagram](SBFL_assets/Mid-Level%20HBFL%20Diagram.png)
 
 # Installation
 The repository is only tested in a Linux environment since Qiskit AER GPU is only supported in linux

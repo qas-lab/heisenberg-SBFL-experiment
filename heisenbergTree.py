@@ -28,7 +28,6 @@ TODO:
 def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch):
     
     testcase_analysis = create_global_test_dataframe(operation_list)
-    transferRules = give_transfer_rules()
     num_qubits = circuit_inverse.num_qubits
     identity_op = Operator.from_label("I" * num_qubits)
     first = True
@@ -67,54 +66,20 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch):
 
             for step_idx, (instruction, qargs, cargs) in enumerate(circuit_inverse.data, start=1):
 
-                gate_type = instruction.name
+                #Define operation being performed
+                gate_type = instruction.name 
+                gate_op = Operator(instruction)
+
+                #Create a do-nothing operator, then add the desired gate to the do-nothing to only act on the desired qubits
                 q_indices = [qarg._index for qarg in qargs]
-
-                # Detect whether transfer rules exist
-                has_rule = gate_type in transferRules
-
-                # Fallback operator path only if needed
-                # if not has_rule and not is_instruction_clifford(instruction):
-                gate_op = identity_op.compose(Operator(instruction), q_indices)
+                full_gate_op = Operator.from_label("I" * num_qubits).compose(gate_op, q_indices)
 
                 new_layer = {}
                 edges = []
 
                 for pauli_in, prob_in in current_layer.items():
 
-                    pauli_label = pauli_in.to_label() if hasattr(pauli_in, "to_label") else str(pauli_in)
-
-                    #TODO: Implement transfer rules to speed up evolution calculation
-                    # ============================
-                    # 1. TRY FAST TRANSFER RULES
-                    # ============================
-                    # if has_rule:
-                    #     print(gate_type, q_indices, pauli_in)
-                    #     evolved_dict = try_transfer(
-                    #         gate_type,
-                    #         pauli_label,
-                    #         q_indices,
-                    #         num_qubits,
-                    #         transferRules
-                    #     )
-
-                    # # ============================
-                    # # 2. FALLBACK TO CLIFFORD RULES
-                    # # ============================
-                    # elif is_instruction_clifford(instruction):
-                    #     evolved_dict = {
-                    #         instruction.evolve(pauli_in, q_indices): 1.0
-                    #     }
-
-                    #TODO: Find a way to perform evolution on specific qubits instead of the entire 2^n x 2^n 
-                    # # ============================
-                    # # 3. FULL OPERATOR FALLBACK
-                    # # ============================
-                    # else:
-                    evolved_dict = evolve_pauli_exact(
-                        pauli_in,
-                        gate_op
-                    )
+                    evolved_dict = evolve_pauli_exact(SparsePauliOp(pauli_in), SparsePauliOp.from_operator(full_gate_op))
 
                     # accumulate results
                     for pauli_out, coeff_out in evolved_dict.items():
