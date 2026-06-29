@@ -193,7 +193,7 @@ dependencies:
       - matplotlib==3.10.8
       - mealpy==3.0.3
       - mthree==3.0.0
-      - numpy==1.26.4
+      - numpy==1.26.0
       - nvidia-cublas-cu11==11.11.3.6
       - nvidia-cublas-cu12==12.9.1.4
       - nvidia-cuda-runtime-cu11==11.8.89
@@ -216,7 +216,7 @@ dependencies:
       - pyparsing==3.3.2
       - pyspnego==0.12.0
       - python-dateutil==2.9.0.post0
-      - qiskit==2.1.1
+      - qiskit--1.4.6
       - qiskit-aer-gpu==0.15.1
       - qiskit-aer-gpu-cu11==0.17.2
       - qiskit-ibm-runtime==0.45.0
