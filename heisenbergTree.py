@@ -21,11 +21,8 @@ INPUTS:
 OUTPUTS:
     testcases_analysis: A pandas DataFrame whose columns should be the gates of the circuit + a column specifying pass or fail. 
                         The rows should be the probability counts of how often gates were involved in a circuit per test case
-
-TODO:
-    Implement transfer rules to speed up evolution calculations when possible
 """
-def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch):
+def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail):
     
     testcase_analysis = create_global_test_dataframe(operation_list)
     num_qubits = circuit_inverse.num_qubits
@@ -72,7 +69,7 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch):
 
                 #Create a do-nothing operator, then add the desired gate to the do-nothing to only act on the desired qubits
                 q_indices = [qarg._index for qarg in qargs]
-                full_gate_op = Operator.from_label("I" * num_qubits).compose(gate_op, q_indices)
+                full_gate_op = identity_op.compose(gate_op, q_indices)
 
                 new_layer = {}
                 edges = []
@@ -110,7 +107,7 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch):
             operation_list = add_counts_to_linked_list(operation_list, transition_graph, pauli_coeff)
 
         first = False
-        testcase_analysis = append_to_analysis(testcase_analysis, operation_list, num_strings)
+        testcase_analysis = append_to_analysis(testcase_analysis, operation_list, num_strings, pass_fail)
         operation_list.reset()
 
     return testcase_analysis

@@ -206,6 +206,7 @@ dependencies:
       - opfunu==1.0.1
       - orjson==3.11.5
       - pandas==3.0.0
+      - pauli-prop
       - pillow==12.1.0
       - psutil==7.2.1
       - pycparser==3.0

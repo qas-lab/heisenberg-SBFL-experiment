@@ -161,6 +161,29 @@ class Circuit_Tester:
         for pauli, prob in zip(paulies, weights):
             pauli_dict[pauli] = prob
         return g_best.target.fitness, pauli_dict, model.history
+    
+    def run_reverse_mealoneplusone(self,fam_idx,epoch):
+        max_family_size = 32
+
+        bounds = [IntegerVar(lb=(1,) * max_family_size, ub=((2 ** self.CUT.num_qubits) - 1,) * max_family_size,
+                             name="paulies"),
+                  FloatVar(lb=(-1.,) * max_family_size, ub=(1.,) * max_family_size, name="delta")]
+        
+
+        problem = ReverseMealGAProblem(bounds=bounds, tester=self, fam_idx=fam_idx)
+
+        model = ES.OriginalES(epoch=epoch,pop_size=5)
+        g_best = model.solve(problem)
+
+        
+
+        decoded = problem.decode_solution(g_best.solution)
+        indexes, weights = decoded['paulies'], decoded['delta']
+        paulies = get_Z_family_values(self.CUT.num_qubits, indexes)
+        pauli_dict = {}
+        for pauli, prob in zip(paulies, weights):
+            pauli_dict[pauli] = prob
+        return g_best.target.fitness, pauli_dict, model.history
 
     def run_mealhillclimbing(self,fam_idx,epoch,pop_size):
         max_family_size = 32
@@ -186,6 +209,29 @@ class Circuit_Tester:
 
 class MealGAProblem(MealProblem):
     def __init__(self, bounds=None, minmax="max", tester=None,fam_idx=0, **kwargs):
+        self.tester = tester
+        self.fam_idx = fam_idx
+        super().__init__(bounds, minmax, **kwargs)
+
+    def obj_func(self, x):
+        decoded = self.decode_solution(x)
+        indexes, weights = decoded['paulies'], decoded['delta']
+        fam = self.tester.applicable_families[self.fam_idx]
+        paulies = get_Z_family_values(self.tester.CUT.num_qubits,indexes)
+        pauli_dict = {}
+        for pauli, prob in zip(paulies, weights):
+            pauli_dict[pauli] = prob
+        testcase = {"test_case": pauli_dict, "family_index": fam[0], "M": fam[-1]}
+        if testcase["test_case"] == {}:
+            return np.inf
+        else:
+            test_case = self.tester.get_test_case_theoretics_Z(testcase)
+            exp = self.tester.get_theoretical_exp_from_test_case_M3(test_case)
+            obs = self.tester.execute_test_cases([test_case])[0]
+        return abs(exp - obs)
+    
+class ReverseMealGAProblem(MealProblem):
+    def __init__(self, bounds=None, minmax="min", tester=None,fam_idx=0, **kwargs):
         self.tester = tester
         self.fam_idx = fam_idx
         super().__init__(bounds, minmax, **kwargs)

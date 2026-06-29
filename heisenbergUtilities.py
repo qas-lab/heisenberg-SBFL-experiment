@@ -89,15 +89,19 @@ def add_counts_to_linked_list(operation_list, transition_graph, string_coeff):
     
     return operation_list
 
-def append_to_analysis(testcase_analysis, operation_list, num_strings):
+def append_to_analysis(testcase_analysis, operation_list, num_strings, pass_fail):
     node = operation_list.head
     gate_list = []
 
     while node:
         gate_list.append(node.count/num_strings)
         node = node.next
+    
+    if pass_fail == "fail":
+        gate_list.append("fail")
+    else:
+        gate_list.append("pass")
         
-    gate_list.append("fail")
     testcase_analysis = pd.concat([testcase_analysis, pd.DataFrame([gate_list], columns=testcase_analysis.columns)], ignore_index=True)
 
     return testcase_analysis
@@ -109,6 +113,7 @@ def tarantula(testcase_analysis):
     pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
 
     tarantula_scores = (fail_counts/num_fail_tests)/((fail_counts/num_fail_tests)+(pass_counts/num_pass_tests))
+    tarantula_scores = tarantula_scores[tarantula_scores.iloc[0].sort_values(ascending=False).index]
     return tarantula_scores
 
 def ochiai(testcase_analysis):
@@ -117,4 +122,5 @@ def ochiai(testcase_analysis):
     num_fail_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "fail"])
 
     ochiai_scores = fail_counts/np.sqrt(num_fail_tests*(fail_counts+pass_counts))
+    ochiai_scores = ochiai_scores[ochiai_scores.iloc[0].sort_values(ascending=False).index]
     return ochiai_scores
