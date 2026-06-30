@@ -7,7 +7,15 @@ from qiskit import QuantumCircuit
 from pauli_prop import propagate_through_operator
 
 """
-This method loads a program from a QASM file. It was written and entirely belongs to the authors of SB-QOPS
+This method loads a program from a QASM file. It was written and entirely belongs to the authors of SB-QOPS.
+
+INPUTS:
+    name (string): The name of the program file to be loaded. Must be QASM file.
+
+    path (string): The filepath to get to the program from working directory.
+
+OUTPUTS:
+    qc (QuantumCircuit): A copy of the quantum circuit with measurements removed.
 """
 def load_program(name,path):
     qc = QuantumCircuit.from_qasm_file("{}/{}".format(path,name))
@@ -20,6 +28,22 @@ def load_program(name,path):
     qc.remove_final_measurements()
     return qc.copy()
 
+"""
+This method utilizes the pauli-prop package to perform exact evolution over the desired gate.
+
+INPUTS:
+    pauli_label (SparsePauliOp): An operator representing the Pauli string that will evolve over the gate.
+
+    gate (SparsePauliOp): The quantum gate over which the Pauli string will propagate. 
+
+OUTPUTS:
+    A dictionary object with the following form:
+    {
+    pauli1 : coeff1,
+    pauli2 : coeff2,
+    ...
+    }
+"""
 def evolve_pauli_exact(pauli_label, gate):
     """Return exact Pauli expansion after conjugation"""
     evolution = propagate_through_operator(pauli_label, gate, atol=1e-4, frame='h', max_terms = 80, search_step=3)
@@ -28,22 +52,17 @@ def evolve_pauli_exact(pauli_label, gate):
         p.to_label(): c for p, c in zip(evolution.paulis, evolution.coeffs)
     }
 
-def create_single_test_dataframe(operation_list):
-    node_list = []
-    node = operation_list.head
-    while node:
-        node_list.append(node)
-        node = node.next
+"""
+This method creates an overall pandas dataframe with columns that represent each gate in the quantum circuit as well as an indicator
+of if the associated test/pauli was a passing or failing test
 
+INPUTS:
+    operation_list (LinkedList): A linked list structure of all the gates in the quantum circuit, including gate names, depth, and 
+        probability counts.
 
-    total_circuit_frame = pd.DataFrame({
-        "total" : [node.count for node in node_list],
-    })
-
-    total_circuit_frame["total"] = total_circuit_frame["total"].astype(np.float64)
-
-    return total_circuit_frame
-
+OUTPUTS:
+    global_circuit_frame (DataFrame): A pandas dataframe whose columns are gate labels + depth and a column for pass or fail indication
+"""
 def create_global_test_dataframe(operation_list):
     node_list = []
     node = operation_list.head
@@ -55,6 +74,18 @@ def create_global_test_dataframe(operation_list):
 
     return global_circuit_frame
 
+"""
+This method formats the raw test cases into a normalized format that we can read from. 
+
+INPUTS:
+    test (string): An unfiltered string holding Pauli strings and coefficients for a test case.
+
+    first (bool): A boolean statement specifying if this is the first test in the testcase batch. Used to offset characters that only 
+        appear after the first test case.
+
+OUTPUTS:
+    test (string): The properly formatted version of the test input string
+"""
 def format_test_case(test, first):
     #Cleaning up the test case string from the csv file to convert it into a dictionary
     test = test.replace("{", "")
@@ -67,6 +98,39 @@ def format_test_case(test, first):
 
     return test
 
+"""
+This method looks for potentially empty test cases and removes them so that it doesn't break our work flow or add faulty tests to the overall
+results.
+
+INPUTS:
+    tests (List): A python list of unformatted test case strings.
+
+OUTPUTS:
+    tests (List): The original input list, but with any null entries removed.
+"""
+def remove_null_tests(tests):
+    for raw_idx, raw in enumerate(tests):
+        if raw == ']':
+            print("Caught one!", raw)
+            tests.pop(raw_idx)
+
+    return tests
+
+"""
+This method adds the probability counts of any evolution that changed the Pauli string to the gate in the Linked List. 
+
+INPUTS:
+    operation_list (LinkedList): A Linked List of gates from the circuit that includes gate name, circuit depth, and a running count of the
+        probability that it will change the Pauli string at a given moment
+
+    transition_graph (Dict): A dictionary containing the change information regarding an evolution step from Pauli propagation
+
+    string_coeff (Float): The coefficient from the test case indicating how to weight the final Pauli. We use this to experimentally
+        weight the probability counts by however the test case weighs the Pauli we're analyzing
+
+OUTPUTS:
+    operation_list (LinkedList): The input Linked List with the counts updated for each gate 
+"""
 def add_counts_to_linked_list(operation_list, transition_graph, string_coeff):
     #Start at first gate in the inverse circuit
     checked_gate = operation_list.head.next
@@ -89,6 +153,22 @@ def add_counts_to_linked_list(operation_list, transition_graph, string_coeff):
     
     return operation_list
 
+"""
+This method appends a resulting Linked List with counts for all the gates to an overall analysis dataframe to use in SBFL
+
+INPUTS:
+    testcase_analysis (DataFrame): A pandas dataframe that is recording all of our test cases including gate counts and pass or fail
+
+    operation_list (LinkedList): A Linked List containing counts for all gates after a test of Pauli evolutions
+
+    num_strings (Int): The number of Pauli strings the specific test case utilized. We use this to weight the counts further,
+        as to not bias our results towards test cases that required more Pauli strings to specify
+    
+    pass_fail (String): A string indicating if the test case we're appending was a passing or a failing test
+
+OUTPUTS:
+    testcase_analysis (DataFrame): An updated pandas DataFrame with the results of a test from the test case batch appended to it
+"""
 def append_to_analysis(testcase_analysis, operation_list, num_strings, pass_fail):
     node = operation_list.head
     gate_list = []
@@ -106,6 +186,16 @@ def append_to_analysis(testcase_analysis, operation_list, num_strings, pass_fail
 
     return testcase_analysis
 
+"""
+This method is the implementation of the SBFL Tarantula algorithm, fitted to work with our data format.
+
+INPUTS:
+    testcase_analysis (DataFrame): A pandas DataFrame with the counts for all gates across all tests from our test cases.
+
+OUTPUTS:
+    tarantula_scores (DataFrame): A pandas DataFrame with columns ordered from highest to lowest suspiciousness scores based on the 
+        Tarantula algorithm.
+"""
 def tarantula(testcase_analysis):
     num_fail_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "fail"])
     num_pass_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "pass"])
@@ -116,6 +206,16 @@ def tarantula(testcase_analysis):
     tarantula_scores = tarantula_scores[tarantula_scores.iloc[0].sort_values(ascending=False).index]
     return tarantula_scores
 
+"""
+This method is the implementation of the SBFL Ochiai algorithm, fitted to work with our data format.
+
+INPUTS:
+    testcase_analysis (DataFrame): A pandas DataFrame with the counts for all gates across all tests from our test cases.
+
+OUTPUTS:
+    ochiai_scores (DataFrame): A pandas DataFrame with columns ordered from highest to lowest suspiciousness scores based on the Ochiai
+        algorithm.
+"""
 def ochiai(testcase_analysis):
     pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
     fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)
@@ -124,3 +224,16 @@ def ochiai(testcase_analysis):
     ochiai_scores = fail_counts/np.sqrt(num_fail_tests*(fail_counts+pass_counts))
     ochiai_scores = ochiai_scores[ochiai_scores.iloc[0].sort_values(ascending=False).index]
     return ochiai_scores
+
+def find_erroneous_gate(operation_list, correct_list):
+    correct_head = correct_list.head
+    #Skip "Initial" which was dropped from the df, but is still in the LL
+    mutant_head = operation_list.head.next
+    while correct_head and mutant_head:
+        if correct_head.value == mutant_head.value:
+            correct_head = correct_head.next
+            mutant_head = mutant_head.next
+        else:
+            return mutant_head.depth
+    
+    return 0
