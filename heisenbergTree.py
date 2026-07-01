@@ -1,5 +1,5 @@
 import numpy as np
-import tqdm as tqdm
+from tqdm import tqdm
 import pandas as pd
 import json
 from qiskit.quantum_info import Pauli, SparsePauliOp, Operator
@@ -68,7 +68,6 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail
                 for pauli_in, prob_in in current_layer.items():
 
                     evolved_dict = evolve_pauli_exact(SparsePauliOp(pauli_in), SparsePauliOp.from_operator(full_gate_op))
-
                     # accumulate results
                     for pauli_out, coeff_out in evolved_dict.items():
 

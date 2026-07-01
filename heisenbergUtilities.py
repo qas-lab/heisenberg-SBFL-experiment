@@ -46,7 +46,7 @@ OUTPUTS:
 """
 def evolve_pauli_exact(pauli_label, gate):
     """Return exact Pauli expansion after conjugation"""
-    evolution = propagate_through_operator(pauli_label, gate, atol=1e-4, frame='h', max_terms = 80, search_step=3)
+    evolution = propagate_through_operator(pauli_label, gate, atol=1e-4, frame='h')
 
     return {
         p.to_label(): c for p, c in zip(evolution.paulis, evolution.coeffs)
@@ -111,7 +111,6 @@ OUTPUTS:
 def remove_null_tests(tests):
     for raw_idx, raw in enumerate(tests):
         if raw == ']':
-            print("Caught one!", raw)
             tests.pop(raw_idx)
 
     return tests
@@ -215,6 +214,9 @@ INPUTS:
 OUTPUTS:
     ochiai_scores (DataFrame): A pandas DataFrame with columns ordered from highest to lowest suspiciousness scores based on the Ochiai
         algorithm.
+
+NOTE: I have discovered that Ochiai is not feasible to implement. It requires a differentiation between failing tests that involve a gate and failing
+tests that do not involve a gate. (Also this current implementation is incorrect)
 """
 def ochiai(testcase_analysis):
     pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
@@ -225,11 +227,47 @@ def ochiai(testcase_analysis):
     ochiai_scores = ochiai_scores[ochiai_scores.iloc[0].sort_values(ascending=False).index]
     return ochiai_scores
 
-def find_erroneous_gate(operation_list, correct_list):
+"""
+This method is the implementation of the SBFL Barinel algorithm, fitted to work with our data format.
+
+INPUTS:
+    testcase_analysis (DataFrame): A pandas DataFrame with the counts for all gates across all tests from our test cases.
+
+OUTPUTS:
+    barinel_scores (DataFrame): A pandas DataFrame with columns ordered from highest to lowest suspiciousness scores based on the Barinel
+        algorithm.
+
+"""
+def barinel(testcase_analysis):
+    pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
+    fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)
+
+    barinel_scores = (fail_counts)/(fail_counts + pass_counts)
+    barinel_scores = barinel_scores[barinel_scores.iloc[0].sort_values(ascending=False).index]
+    return barinel_scores
+
+def custom_sbfl(testcase_analysis):
+    pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
+    fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)
+
+    #TODO: Implement a custom SBFL algorithm here
+
+"""
+This method compares the original quantum circuit to the mutated one, and locates the depth where an added gate occurs.
+
+INPUTS:
+    forward_list (LinkedList): A Linked List containing the data regarding our NOT INVERSE mutant circuit
+
+    correct_list (LinkedList): A linked list containing the data regarding the NOT INVERSE correct circuit
+
+OUTPUTS:
+    depth (Int): The depth of the erroneous gate in the mutant circuit.
+"""
+def find_erroneous_gate(forward_list, correct_list):
     correct_head = correct_list.head
-    #Skip "Initial" which was dropped from the df, but is still in the LL
-    mutant_head = operation_list.head.next
+    mutant_head = forward_list.head
     while correct_head and mutant_head:
+        print(correct_head.value, mutant_head.value)
         if correct_head.value == mutant_head.value:
             correct_head = correct_head.next
             mutant_head = mutant_head.next
