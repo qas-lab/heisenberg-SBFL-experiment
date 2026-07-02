@@ -44,9 +44,9 @@ OUTPUTS:
     ...
     }
 """
-def evolve_pauli_exact(pauli_label, gate):
+def evolve_pauli_exact(pauli_label, gate, tolerance = 1e-4, terms = None, search_step = None):
     """Return exact Pauli expansion after conjugation"""
-    evolution = propagate_through_operator(pauli_label, gate, atol=1e-4, frame='h')
+    evolution = propagate_through_operator(pauli_label, gate, atol=tolerance, frame='h', max_terms=terms, search_step=search_step)
 
     return {
         p.to_label(): c for p, c in zip(evolution.paulis, evolution.coeffs)
@@ -205,27 +205,27 @@ def tarantula(testcase_analysis):
     tarantula_scores = tarantula_scores[tarantula_scores.iloc[0].sort_values(ascending=False).index]
     return tarantula_scores
 
-"""
-This method is the implementation of the SBFL Ochiai algorithm, fitted to work with our data format.
+# """
+# This method is the implementation of the SBFL Ochiai algorithm, fitted to work with our data format.
 
-INPUTS:
-    testcase_analysis (DataFrame): A pandas DataFrame with the counts for all gates across all tests from our test cases.
+# INPUTS:
+#     testcase_analysis (DataFrame): A pandas DataFrame with the counts for all gates across all tests from our test cases.
 
-OUTPUTS:
-    ochiai_scores (DataFrame): A pandas DataFrame with columns ordered from highest to lowest suspiciousness scores based on the Ochiai
-        algorithm.
+# OUTPUTS:
+#     ochiai_scores (DataFrame): A pandas DataFrame with columns ordered from highest to lowest suspiciousness scores based on the Ochiai
+#         algorithm.
 
-NOTE: I have discovered that Ochiai is not feasible to implement. It requires a differentiation between failing tests that involve a gate and failing
-tests that do not involve a gate. (Also this current implementation is incorrect)
-"""
-def ochiai(testcase_analysis):
-    pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
-    fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)
-    num_fail_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "fail"])
+# NOTE: I have discovered that Ochiai is not feasible to implement. It requires a differentiation between failing tests that involve a gate and failing
+# tests that do not involve a gate. (Also this current implementation is incorrect)
+# """
+# def ochiai(testcase_analysis):
+#     pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
+#     fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)
+#     num_fail_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "fail"])
 
-    ochiai_scores = fail_counts/np.sqrt(num_fail_tests*(fail_counts+pass_counts))
-    ochiai_scores = ochiai_scores[ochiai_scores.iloc[0].sort_values(ascending=False).index]
-    return ochiai_scores
+#     ochiai_scores = fail_counts/np.sqrt(num_fail_tests*(fail_counts+pass_counts))
+#     ochiai_scores = ochiai_scores[ochiai_scores.iloc[0].sort_values(ascending=False).index]
+#     return ochiai_scores
 
 """
 This method is the implementation of the SBFL Barinel algorithm, fitted to work with our data format.
@@ -262,12 +262,16 @@ INPUTS:
 
 OUTPUTS:
     depth (Int): The depth of the erroneous gate in the mutant circuit.
+
+NOTE: This method only works for mutants that add a gate to the circuit. Functionality for mutants that remove or
+    replace a gate is for future work, as SBFL works best for mutants with extra gates
 """
 def find_erroneous_gate(forward_list, correct_list):
     correct_head = correct_list.head
     mutant_head = forward_list.head
-    while correct_head and mutant_head:
-        print(correct_head.value, mutant_head.value)
+    while mutant_head:
+        if correct_head is None:
+            return mutant_head.depth
         if correct_head.value == mutant_head.value:
             correct_head = correct_head.next
             mutant_head = mutant_head.next

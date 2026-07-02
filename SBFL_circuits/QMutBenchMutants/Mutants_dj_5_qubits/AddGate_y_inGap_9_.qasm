@@ -16,7 +16,6 @@ cx q[2],q[4];
 u(pi/2,-pi,-pi) q[2];
 cx q[3],q[4];
 u(pi/2,-pi,-pi) q[3];
-barrier q[0],q[1],q[2],q[3],q[4];
 y q[0];
 barrier q[0],q[1],q[2],q[3],q[4];
 measure q[0] -> meas[0];

@@ -25,7 +25,7 @@ OUTPUTS:
     testcases_analysis: A pandas DataFrame whose columns should be the gates of the circuit + a column specifying pass or fail. 
                         The rows should be the probability counts of how often gates were involved in a circuit per test case
 """
-def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail):
+def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail, atol = 1e-4, max_terms = None, search_step = None):
     
     testcase_analysis = create_global_test_dataframe(operation_list)
     num_qubits = circuit_inverse.num_qubits
@@ -67,7 +67,7 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail
 
                 for pauli_in, prob_in in current_layer.items():
 
-                    evolved_dict = evolve_pauli_exact(SparsePauliOp(pauli_in), SparsePauliOp.from_operator(full_gate_op))
+                    evolved_dict = evolve_pauli_exact(SparsePauliOp(pauli_in), SparsePauliOp.from_operator(full_gate_op), tolerance=atol, terms=max_terms, search_step=search_step)
                     # accumulate results
                     for pauli_out, coeff_out in evolved_dict.items():
 
