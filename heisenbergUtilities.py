@@ -28,6 +28,23 @@ def load_program(name,path):
     qc.remove_final_measurements()
     return qc.copy()
 
+def construct_list(list, circuit, inverse):
+    if inverse:
+        depth = 0
+
+        #Append each gate to the linked list
+        list.append("Initial", depth)
+        for instruction in circuit.data:
+            depth += 1
+            list.append(instruction.name + " " + str((circuit.size()-depth)), depth)
+    else:
+        depth = 0
+        for instruction in circuit.data:
+            list.append(instruction.name + " " + str(depth), depth)
+            depth += 1
+
+    return list
+
 """
 This method utilizes the pauli-prop package to perform exact evolution over the desired gate.
 
@@ -130,7 +147,7 @@ INPUTS:
 OUTPUTS:
     operation_list (LinkedList): The input Linked List with the counts updated for each gate 
 """
-def add_counts_to_linked_list(operation_list, transition_graph, string_coeff):
+def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, lambda_phase, lambda_change):
     #Start at first gate in the inverse circuit
     checked_gate = operation_list.head.next
     idx = 1
@@ -140,13 +157,24 @@ def add_counts_to_linked_list(operation_list, transition_graph, string_coeff):
 
         #For each transition through that gate
         for edge in transition_graph[idx]["edges"]:
-            
-            #If the previous Pauli string evolved into a new Pauli string, 
-            #add the probability of that new string occuring to that gate's count
-            if edge["from"] != edge["to"]:
-                checked_gate.count += edge["probability"]
-        
-        checked_gate.count *= abs(string_coeff)
+            #-----------------------------------------------------------------------
+            # score = 0
+
+            # #If the previous Pauli string evolved into a new Pauli string, 
+            # #add the probability of that new string occuring to that gate's count
+            # if edge["from"] != edge["to"]:
+            #     score += 1
+
+            # score += edge["phase"] / np.pi
+
+            # checked_gate.count += score * edge["probability"]
+            #-----------------------------------------------------------------------
+
+            distance = lambda_change * int(edge["from"]!=edge["to"]) + lambda_phase * abs(edge["phase"]) / np.pi
+
+            checked_gate.count += distance * edge["probability"]
+
+        #checked_gate.count *= abs(string_coeff)
         idx += 1
         checked_gate = checked_gate.next
     
@@ -242,7 +270,7 @@ def barinel(testcase_analysis):
     pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
     fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)
 
-    barinel_scores = (fail_counts)/(fail_counts + pass_counts)
+    barinel_scores = 1 - ((pass_counts)/(fail_counts + pass_counts))
     barinel_scores = barinel_scores[barinel_scores.iloc[0].sort_values(ascending=False).index]
     return barinel_scores
 

@@ -25,7 +25,7 @@ OUTPUTS:
     testcases_analysis: A pandas DataFrame whose columns should be the gates of the circuit + a column specifying pass or fail. 
                         The rows should be the probability counts of how often gates were involved in a circuit per test case
 """
-def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail, atol = 1e-4, max_terms = None, search_step = None):
+def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail, lambda_phase, lambda_change, atol = 1e-4, max_terms = None, search_step = None):
     
     testcase_analysis = create_global_test_dataframe(operation_list)
     num_qubits = circuit_inverse.num_qubits
@@ -79,7 +79,9 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail
                             "from": pauli_in,
                             "to": pauli_out,
                             "weight": coeff_out,
-                            "probability": total_prob
+                            "probability": total_prob,
+                            "phase": np.angle(coeff_out),
+                            "sign": coeff_out / abs(coeff_out) if coeff_out != 0 else 0,
                         })
 
                 # prune noise
@@ -94,7 +96,7 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail
                     "edges": edges
                 }
 
-            operation_list = add_counts_to_linked_list(operation_list, transition_graph, pauli_coeff)
+            operation_list = add_counts_to_linked_list(operation_list, transition_graph, pauli_coeff, lambda_phase, lambda_change)
 
         first = False
         testcase_analysis = append_to_analysis(testcase_analysis, operation_list, num_strings, pass_fail)
