@@ -3,11 +3,11 @@ import json
 import numpy as np
 from qiskit.quantum_info import SparsePauliOp, Operator, Pauli, Clifford
 from qiskit.exceptions import QiskitError
-from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit, qasm3, qasm2
 from pauli_prop import propagate_through_operator
 
 """
-This method loads a program from a QASM file. It was written and entirely belongs to the authors of SB-QOPS.
+This method loads a program from a QASM file. It has only been modified to parse QASM3 files and otherwise belongs to the authors of SB-QOPS.
 
 INPUTS:
     name (string): The name of the program file to be loaded. Must be QASM file.
@@ -18,15 +18,29 @@ OUTPUTS:
     qc (QuantumCircuit): A copy of the quantum circuit with measurements removed.
 """
 def load_program(name,path):
-    qc = QuantumCircuit.from_qasm_file("{}/{}".format(path,name))
-    qc.remove_final_measurements()
-    if len(qc.clbits) > 0:
-        for i in range(len(qc.clbits)):
-            qc.measure(i, i)
-    else:
-        qc.measure_all()
-    qc.remove_final_measurements()
-    return qc.copy()
+    try:
+        qc = qasm3.load("{}/{}".format(path,name))
+        qc.remove_final_measurements()
+        if len(qc.clbits) > 0:
+            for i in range(len(qc.clbits)):
+                qc.measure(i, i)
+        else:
+            qc.measure_all()
+        qc.remove_final_measurements()
+        return qc.copy()
+    except:
+        try:
+            qc = qasm2.load("{}/{}".format(path,name), custom_instructions=qasm2.LEGACY_CUSTOM_INSTRUCTIONS)
+            qc.remove_final_measurements()
+            if len(qc.clbits) > 0:
+                for i in range(len(qc.clbits)):
+                    qc.measure(i, i)
+            else:
+                qc.measure_all()
+            qc.remove_final_measurements()
+            return qc.copy()
+        except:
+            raise Exception("File open error")
 
 def construct_list(list, circuit, inverse):
     if inverse:
@@ -133,6 +147,13 @@ def remove_null_tests(tests):
     return tests
 
 """
+
+"""
+def pauli_similarity(pauli_a, pauli_b):
+    matches = sum(a == b for a, b in zip(pauli_a, pauli_b))
+    return matches / len(pauli_a)
+
+"""
 This method adds the probability counts of any evolution that changed the Pauli string to the gate in the Linked List. 
 
 INPUTS:
@@ -147,7 +168,7 @@ INPUTS:
 OUTPUTS:
     operation_list (LinkedList): The input Linked List with the counts updated for each gate 
 """
-def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, lambda_phase, lambda_change):
+def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, lambda_phase, lambda_change, target_pauli):
     #Start at first gate in the inverse circuit
     checked_gate = operation_list.head.next
     idx = 1
@@ -170,11 +191,12 @@ def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, la
             # checked_gate.count += score * edge["probability"]
             #-----------------------------------------------------------------------
 
+            similarity_difference = edge["to_similarity"] - edge["from_similarity"]
+
             distance = lambda_change * int(edge["from"]!=edge["to"]) + lambda_phase * abs(edge["phase"]) / np.pi
 
-            checked_gate.count += distance * edge["probability"]
+            checked_gate.count += (distance + similarity_difference) * edge["probability"]
 
-        #checked_gate.count *= abs(string_coeff)
         idx += 1
         checked_gate = checked_gate.next
     

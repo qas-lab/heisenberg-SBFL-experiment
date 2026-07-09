@@ -52,6 +52,7 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail
                 initial_pauli.paulis[0].to_label(): 1.0  # Start with the initial Pauli having probability 1
             }
 
+            #For each gate
             for step_idx, (instruction, qargs, cargs) in enumerate(circuit_inverse.data, start=1):
 
                 #Define operation being performed
@@ -65,10 +66,12 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail
                 new_layer = {}
                 edges = []
 
+                #For each Pauli string this gate propagates
                 for pauli_in, prob_in in current_layer.items():
 
                     evolved_dict = evolve_pauli_exact(SparsePauliOp(pauli_in), SparsePauliOp.from_operator(full_gate_op), tolerance=atol, terms=max_terms, search_step=search_step)
-                    # accumulate results
+
+                    #For each Pauli string that results from the propagation
                     for pauli_out, coeff_out in evolved_dict.items():
 
                         total_prob = prob_in * (abs(coeff_out) ** 2)
@@ -77,7 +80,9 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail
 
                         edges.append({
                             "from": pauli_in,
+                            "from_similarity": pauli_similarity(pauli_in, initial_pauli.paulis[0].to_label()),
                             "to": pauli_out,
+                            "to_similarity": pauli_similarity(pauli_out, initial_pauli.paulis[0].to_label()),
                             "weight": coeff_out,
                             "probability": total_prob,
                             "phase": np.angle(coeff_out),
@@ -96,7 +101,7 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail
                     "edges": edges
                 }
 
-            operation_list = add_counts_to_linked_list(operation_list, transition_graph, pauli_coeff, lambda_phase, lambda_change)
+            operation_list = add_counts_to_linked_list(operation_list, transition_graph, pauli_coeff, lambda_phase, lambda_change, initial_pauli.paulis[0].to_label())
 
         first = False
         testcase_analysis = append_to_analysis(testcase_analysis, operation_list, num_strings, pass_fail)
