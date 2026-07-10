@@ -168,7 +168,7 @@ INPUTS:
 OUTPUTS:
     operation_list (LinkedList): The input Linked List with the counts updated for each gate 
 """
-def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, lambda_phase, lambda_change, target_pauli):
+def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, lambda_phase, lambda_change, lambda_similarity):
     #Start at first gate in the inverse circuit
     checked_gate = operation_list.head.next
     idx = 1
@@ -191,11 +191,13 @@ def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, la
             # checked_gate.count += score * edge["probability"]
             #-----------------------------------------------------------------------
 
-            similarity_difference = edge["to_similarity"] - edge["from_similarity"]
+            change = lambda_change * int(edge["from"]!=edge["to"])
+            phase = lambda_phase * abs(edge["phase"]) / np.pi
+            similarity_difference = lambda_similarity * (edge["to_similarity"] - edge["from_similarity"])
 
-            distance = lambda_change * int(edge["from"]!=edge["to"]) + lambda_phase * abs(edge["phase"]) / np.pi
+            distance = (change + phase + similarity_difference) * edge["probability"] * abs(string_coeff)
 
-            checked_gate.count += (distance + similarity_difference) * edge["probability"]
+            checked_gate.count += distance
 
         idx += 1
         checked_gate = checked_gate.next
@@ -316,16 +318,31 @@ OUTPUTS:
 NOTE: This method only works for mutants that add a gate to the circuit. Functionality for mutants that remove or
     replace a gate is for future work, as SBFL works best for mutants with extra gates
 """
-def find_erroneous_gate(forward_list, correct_list):
-    correct_head = correct_list.head
-    mutant_head = forward_list.head
-    while mutant_head:
-        if correct_head is None:
-            return mutant_head.depth
-        if correct_head.value == mutant_head.value:
-            correct_head = correct_head.next
-            mutant_head = mutant_head.next
-        else:
-            return mutant_head.depth
+def find_erroneous_gate(forward_mutant, correct_circuit):
     
-    return 0
+    for idx, mutant_instruction in enumerate(forward_mutant.data):
+
+        if idx > len(correct_circuit.data) - 1:
+            return idx
+
+        if mutant_instruction.name != correct_circuit.data[idx].name:
+            return idx
+        
+        if forward_mutant.data[idx].qubits != correct_circuit.data[idx].qubits:
+            return idx
+
+    
+    
+    
+    # correct_head = correct_list.head
+    # mutant_head = forward_list.head
+    # while mutant_head:
+    #     if correct_head is None:
+    #         return mutant_head.depth
+    #     if correct_head.value == mutant_head.value:
+    #         correct_head = correct_head.next
+    #         mutant_head = mutant_head.next
+    #     else:
+    #         return mutant_head.depth
+    
+    # return 0
