@@ -42,6 +42,17 @@ def load_program(name,path):
         except:
             raise Exception("File open error")
 
+
+"""
+This method constructs a Linked List of all the quantum gates found within a circuit in the order required to run the rest of this program
+
+INPUTS:
+    list (LinkedList): The empty LinkedList datatype that will be filled with gates
+
+    circuit (QuantumCircuit): The QuantumCircuit from Qiskit to obtain the quantum gates from
+
+    inverse (bool): A boolean to specify if the circuit coming in is inverted or not. This exists due to how I implemented other parts of the program
+"""
 def construct_list(list, circuit, inverse):
     if inverse:
         depth = 0
@@ -147,11 +158,48 @@ def remove_null_tests(tests):
     return tests
 
 """
+This method measures the similarity between two Pauli strings based on the number of the same observables in the same places. Used in the heuristic function
 
+INPUTS: 
+    pauli_a (string): A Pauli string as a string datatype
+
+    pauli_b (string): A Pauli string as a string datatype
+
+OUTPUTS:
+    score (float): The similarity score, normalized based on the number of observables in the string
 """
 def pauli_similarity(pauli_a, pauli_b):
     matches = sum(a == b for a, b in zip(pauli_a, pauli_b))
     return matches / len(pauli_a)
+
+"""
+This method measures and constructs a variety of features about a Pauli string, which all get used by the heuristic function.
+
+INPUTS:
+    pauli (string): A Pauli string as a string datatype
+
+OUTPUTS:
+    features (dict): A dictionary containing useful features about the Pauli string
+
+NOTE: The dict records the following features:
+    weight (int): The number of non-identity Pauli observables in the string
+
+    support (set): The set of the non-identity Pauli observables in the string
+
+    composition (numpy array): The counts of X, Y, and Z observables in the Pauli string
+
+    diameter (int): The range of coverage across all qubits
+"""
+def pauli_features(pauli):
+    support = [i for i,p in enumerate(pauli) if p != "I"]
+    composition = np.array([pauli.count("X"), pauli.count("Y"), pauli.count("Z")])
+
+    return {
+        "weight": len(support),
+        "support": set(support),
+        "composition": composition,
+        "diameter": max(support)-min(support) if support else 0,
+    }
 
 """
 This method adds the probability counts of any evolution that changed the Pauli string to the gate in the Linked List. 
@@ -191,12 +239,30 @@ def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, la
             # checked_gate.count += score * edge["probability"]
             #-----------------------------------------------------------------------
 
-            change = lambda_change * int(edge["from"]!=edge["to"])
-            phase = lambda_phase * abs(edge["phase"]) / np.pi
-            similarity_difference = lambda_similarity * (edge["to_similarity"] - edge["from_similarity"])
+            #-----------------------------------------------------------------------
+            # change = lambda_change * int(edge["from"]!=edge["to"])
+            # phase = lambda_phase * abs(edge["phase"]) / np.pi
+            # similarity_difference = lambda_similarity * (edge["to_similarity"] - edge["from_similarity"])
 
-            distance = (change + phase + similarity_difference) * edge["probability"] * abs(string_coeff)
+            # distance = (change + phase + similarity_difference) * edge["probability"] * abs(string_coeff)
 
+            # checked_gate.count += distance
+            #-----------------------------------------------------------------------
+
+            s1 = edge["to_features"]["support"]
+            s2 = edge["initial_features"]["support"]
+            s3 = edge["from_features"]["support"]
+            intersection = len(s1 & s2)
+            union = len(s1 | s2)
+            jaccard = intersection / union if union else 1
+
+            weight_difference = abs(edge["to_features"]["weight"] - edge["initial_features"]["weight"]) if (edge["to_features"]["weight"] - edge["from_features"]["weight"]) != 0 else 0
+            composition_difference = np.linalg.norm(edge["to_features"]["composition"] - edge["initial_features"]["composition"]) if np.linalg.norm(edge["to_features"]["composition"] - edge["from_features"]["composition"]) != 0 else 0
+            support_overlap = 1-jaccard if len(s1 & s3) != len(s1) else 0
+            diameter_difference = abs(edge["to_features"]["diameter"] - edge["initial_features"]["diameter"]) if abs(edge["to_features"]["diameter"] - edge["from_features"]["diameter"]) != 0 else 0
+            phase = abs(edge["phase"]) / np.pi
+
+            distance = (weight_difference + composition_difference + support_overlap + diameter_difference + phase) * edge["probability"] * abs(string_coeff)
             checked_gate.count += distance
 
         idx += 1
@@ -257,28 +323,6 @@ def tarantula(testcase_analysis):
     tarantula_scores = tarantula_scores[tarantula_scores.iloc[0].sort_values(ascending=False).index]
     return tarantula_scores
 
-# """
-# This method is the implementation of the SBFL Ochiai algorithm, fitted to work with our data format.
-
-# INPUTS:
-#     testcase_analysis (DataFrame): A pandas DataFrame with the counts for all gates across all tests from our test cases.
-
-# OUTPUTS:
-#     ochiai_scores (DataFrame): A pandas DataFrame with columns ordered from highest to lowest suspiciousness scores based on the Ochiai
-#         algorithm.
-
-# NOTE: I have discovered that Ochiai is not feasible to implement. It requires a differentiation between failing tests that involve a gate and failing
-# tests that do not involve a gate. (Also this current implementation is incorrect)
-# """
-# def ochiai(testcase_analysis):
-#     pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
-#     fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)
-#     num_fail_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "fail"])
-
-#     ochiai_scores = fail_counts/np.sqrt(num_fail_tests*(fail_counts+pass_counts))
-#     ochiai_scores = ochiai_scores[ochiai_scores.iloc[0].sort_values(ascending=False).index]
-#     return ochiai_scores
-
 """
 This method is the implementation of the SBFL Barinel algorithm, fitted to work with our data format.
 
@@ -330,19 +374,3 @@ def find_erroneous_gate(forward_mutant, correct_circuit):
         
         if forward_mutant.data[idx].qubits != correct_circuit.data[idx].qubits:
             return idx
-
-    
-    
-    
-    # correct_head = correct_list.head
-    # mutant_head = forward_list.head
-    # while mutant_head:
-    #     if correct_head is None:
-    #         return mutant_head.depth
-    #     if correct_head.value == mutant_head.value:
-    #         correct_head = correct_head.next
-    #         mutant_head = mutant_head.next
-    #     else:
-    #         return mutant_head.depth
-    
-    # return 0

@@ -40,6 +40,7 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail
         #For each string specified in the test case, perform Pauli propagation through the circuit and store the results
         for pauli_string, pauli_coeff in zip(test.keys(), test.values()):
 
+            initial_features = pauli_features(pauli_string)
             num_strings += 1
             # Define the initial Pauli operator to track
             # Qiskit layout is right-to-left: 'IX' means X acts on Qubit 0, I acts on Qubit 1
@@ -78,11 +79,17 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail
 
                         new_layer[pauli_out] = new_layer.get(pauli_out, 0) + total_prob
 
+                        from_features = pauli_features(pauli_in)
+                        to_features = pauli_features(pauli_out)
+
                         edges.append({
                             "from": pauli_in,
                             "from_similarity": pauli_similarity(pauli_in, initial_pauli.paulis[0].to_label()),
+                            "from_features": from_features,
                             "to": pauli_out,
                             "to_similarity": pauli_similarity(pauli_out, initial_pauli.paulis[0].to_label()),
+                            "to_features": to_features,
+                            "initial_features": initial_features,
                             "weight": coeff_out,
                             "probability": total_prob,
                             "phase": np.angle(coeff_out),
@@ -91,7 +98,7 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail
 
                 # prune noise
                 current_layer = {
-                    Pauli(p): prob
+                    Pauli(p).to_label(): prob
                     for p, prob in new_layer.items()
                     if abs(prob) > 1e-4
                 }
