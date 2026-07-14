@@ -34,7 +34,6 @@ def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail
 
     for test in tqdm(testcase_batch):
 
-        test = format_test_case(test, first)
         num_strings = 0
 
         #For each string specified in the test case, perform Pauli propagation through the circuit and store the results

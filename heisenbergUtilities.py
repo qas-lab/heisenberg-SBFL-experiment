@@ -151,11 +151,9 @@ OUTPUTS:
     tests (List): The original input list, but with any null entries removed.
 """
 def remove_null_tests(tests):
-    for raw_idx, raw in enumerate(tests):
-        if raw == ']':
-            tests.pop(raw_idx)
+    filtered = [test for test in tests if test != {}]
 
-    return tests
+    return filtered
 
 """
 This method measures the similarity between two Pauli strings based on the number of the same observables in the same places. Used in the heuristic function
@@ -261,6 +259,7 @@ def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, la
             support_overlap = 1-jaccard if len(s1 & s3) != len(s1) else 0
             diameter_difference = abs(edge["to_features"]["diameter"] - edge["initial_features"]["diameter"]) if abs(edge["to_features"]["diameter"] - edge["from_features"]["diameter"]) != 0 else 0
             phase = abs(edge["phase"]) / np.pi
+            similarity_difference = (edge["to_similarity"] - edge["from_similarity"])
 
             distance = (weight_difference + composition_difference + support_overlap + diameter_difference + phase) * edge["probability"] * abs(string_coeff)
             checked_gate.count += distance
