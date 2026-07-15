@@ -14,34 +14,19 @@ Anaconda Python distribution is required [here](https://www.anaconda.com/product
 Steps:
 
     1. Clone the repository
-    2. cd SB-QOPS
+    2. cd heisenberg-SBFL-experiment
     3  conda env create -f environment.yml
     4. conda activate sbqops 
+    5. pip install "qiskit<1.5.0"
+    6. pip uninstall qiskit-aer qiskit-aer-gpu
+    7. pip install --upgrade qiskit-aer
+    8. pip install --upgrade qiskit-aer-gpu
+    9. jupyter notebook SBFL.ipynb
 	
 # Evaluate new Circuit:
 ### To test new circuits
 
-``` python
-
-import QOPS as qops
-
-if __name__ == '__main__':
-
-    QUBITS = 29 # number of qubits
-
-    ga_result = pd.DataFrame(columns=['Program',"mutant",'catch_avg','avg_fitness','testcases'])
-    circuit = # qiskit circuit without measurements
-    program_specification = #compact program specification in the form {"paulistring eg zzzz": {"bitstrings":count}}
-    tester = qops.Circuit_Tester(CUT=circuit)
-    tester.set_applicable_families_Z(program_specification)
-    for i in range(len(tester.applicable_families)):
-        best_function,testcase, history = tester.run_mealoneplusone(i, 80) # change algorithm here
-            if best_function > 0.1: # tolerance threshold
-                killed = 1
-                pauli = testcase
-                fitness = best_function
-                break
-```
+Please see further instructions in the SBFL.ipynb notebook file. It has been written to ease new users through the process of running our experiment.
 
 # Acknowledgements
 We acknowledge and thank the authors of SB-QOPS Asmar Muqeet, Shaukat Ali, and Paolo Arcaini for their work and making their work open-source under the Apache 2.0 License

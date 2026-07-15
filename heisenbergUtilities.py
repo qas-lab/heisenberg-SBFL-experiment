@@ -341,11 +341,15 @@ def barinel(testcase_analysis):
     barinel_scores = barinel_scores[barinel_scores.iloc[0].sort_values(ascending=False).index]
     return barinel_scores
 
-def custom_sbfl(testcase_analysis):
+def dstar(testcase_analysis):
     pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
     fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)
+    num_fail_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "fail"])
 
-    #TODO: Implement a custom SBFL algorithm here
+    dstar_scores = (fail_counts**2)/(pass_counts + num_fail_tests)
+    dstar_scores = dstar_scores[dstar_scores.iloc[0].sort_values(ascending=False).index]
+    return dstar_scores
+
 
 """
 This method compares the original quantum circuit to the mutated one, and locates the depth where an added gate occurs.
