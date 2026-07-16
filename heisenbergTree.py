@@ -20,10 +20,21 @@ INPUTS:
 
     pass_fail: A string indicating if the testcase_batch is a batch of failing or passing test cases
 
+    lambda_phase (float): The hyperparameter to weight phase contribution in the heuristic
+
+    lambda_change (float): The hyperparameter to weight string change contribution in the heuristic
+
+    lambda_similarity (float): The hyperparameter to weight similarity scores in the heuristic
+
+    atol (float): The tolerance value used to cut off evolution with less than threshold magnitude
+
+    max_terms (int): The maximum number of string to keep track of during propagation 
+
+    search_step (int): Hyperparameter used to speed up propagation. Should be step**3 << max_terms to avoid accuracy loss
                     
 OUTPUTS:
     testcases_analysis: A pandas DataFrame whose columns should be the gates of the circuit + a column specifying pass or fail. 
-                        The rows should be the probability counts of how often gates were involved in a circuit per test case
+                        The rows should be the heuristic counts of how often gates were involved in a circuit per test case
 """
 def heisenberg_evolve(circuit_inverse, operation_list, testcase_batch, pass_fail, lambda_phase, lambda_change, lambda_similarity, atol = 1e-4, max_terms = None, search_step = None):
     

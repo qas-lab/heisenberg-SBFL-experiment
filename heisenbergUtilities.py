@@ -341,6 +341,16 @@ def barinel(testcase_analysis):
     barinel_scores = barinel_scores[barinel_scores.iloc[0].sort_values(ascending=False).index]
     return barinel_scores
 
+"""
+This method is the implementation of the SBFL DStar algorithm, fitted to word with our data format
+
+INPUTS:
+    testcase_analysis (DataFrame): A pandas DataFrame with the counts for all gates across all tests from our test cases.
+
+OUTPUTS:
+    dstar_scores (DataFrame): A pandas DataFrame with columns ordered from highest to lowest suspiciousness scores based on the DStar
+        algorithm.
+"""
 def dstar(testcase_analysis):
     pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
     fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)

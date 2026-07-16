@@ -16,7 +16,7 @@ Steps:
     1. Clone the repository
     2. cd heisenberg-SBFL-experiment
     3  conda env create -f environment.yml
-    4. conda activate sbqops 
+    4. conda activate hbfl 
     5. pip install "qiskit<1.5.0"
     6. pip uninstall qiskit-aer qiskit-aer-gpu
     7. pip install --upgrade qiskit-aer
