@@ -128,17 +128,14 @@ INPUTS:
 OUTPUTS:
     test (string): The properly formatted version of the test input string
 """
-def format_test_case(test, first):
-    #Cleaning up the test case string from the csv file to convert it into a dictionary
-    test = test.replace("{", "")
-    test = test.replace("]", "")
-    test = test.replace("[", "")
-    if not first:
-        test = test[2:]
-    test = "{" +test + "}"
-    test = json.loads(test)
+def format_test_case(ga_result, mutant, mutant_num, column_name):
+    desired_testcases = ga_result.loc[(ga_result["Program"] == mutant), [column_name]]
+    dict_testcases = desired_testcases.to_dict()
+    string_testcases = dict_testcases[column_name][mutant_num]
+    list_testcases = json.loads(string_testcases)
+    raw_testcases = remove_null_tests(list_testcases)
 
-    return test
+    return raw_testcases
 
 """
 This method looks for potentially empty test cases and removes them so that it doesn't break our work flow or add faulty tests to the overall
@@ -214,7 +211,7 @@ INPUTS:
 OUTPUTS:
     operation_list (LinkedList): The input Linked List with the counts updated for each gate 
 """
-def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, lambda_phase, lambda_change, lambda_similarity):
+def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, lambdas):
     #Start at first gate in the inverse circuit
     checked_gate = operation_list.head.next
     idx = 1
@@ -224,6 +221,7 @@ def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, la
 
         #For each transition through that gate
         for edge in transition_graph[idx]["edges"]:
+            num_qubits = len(edge["to"])
             #-----------------------------------------------------------------------
             # score = 0
 
@@ -254,14 +252,18 @@ def add_counts_to_linked_list(operation_list, transition_graph, string_coeff, la
             union = len(s1 | s2)
             jaccard = intersection / union if union else 1
 
-            weight_difference = abs(edge["to_features"]["weight"] - edge["initial_features"]["weight"]) if (edge["to_features"]["weight"] - edge["from_features"]["weight"]) != 0 else 0
-            composition_difference = np.linalg.norm(edge["to_features"]["composition"] - edge["initial_features"]["composition"]) if np.linalg.norm(edge["to_features"]["composition"] - edge["from_features"]["composition"]) != 0 else 0
+            weight_difference = abs(edge["to_features"]["weight"] - edge["initial_features"]["weight"])/num_qubits if (edge["to_features"]["weight"] - edge["from_features"]["weight"]) != 0 else 0
+            composition_difference = np.linalg.norm(edge["to_features"]["composition"] - edge["initial_features"]["composition"])/(np.sqrt(2)*num_qubits) if np.linalg.norm(edge["to_features"]["composition"] - edge["from_features"]["composition"]) != 0 else 0
             support_overlap = 1-jaccard if len(s1 & s3) != len(s1) else 0
-            diameter_difference = abs(edge["to_features"]["diameter"] - edge["initial_features"]["diameter"]) if abs(edge["to_features"]["diameter"] - edge["from_features"]["diameter"]) != 0 else 0
+            diameter_difference = (abs(edge["to_features"]["diameter"] - edge["initial_features"]["diameter"])/max(num_qubits-1,1)) if abs(edge["to_features"]["diameter"] - edge["from_features"]["diameter"]) != 0 else 0
             phase = abs(edge["phase"]) / np.pi
             similarity_difference = (edge["to_similarity"] - edge["from_similarity"])
 
-            distance = (weight_difference + composition_difference + support_overlap + diameter_difference + phase) * edge["probability"] * abs(string_coeff)
+            distance = (lambdas[0]*weight_difference + 
+                        lambdas[1]*composition_difference + 
+                        lambdas[2]*support_overlap + 
+                        lambdas[3]*diameter_difference + 
+                        lambdas[4]*phase) * edge["probability"] * abs(string_coeff)
             checked_gate.count += distance
 
         idx += 1
@@ -312,15 +314,22 @@ OUTPUTS:
     tarantula_scores (DataFrame): A pandas DataFrame with columns ordered from highest to lowest suspiciousness scores based on the 
         Tarantula algorithm.
 """
-def tarantula(testcase_analysis):
+def custom_sbfl(testcase_analysis, weight):
     num_fail_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "fail"])
     num_pass_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "pass"])
     fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)
+    max_fail = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["max"]).drop(["pass/fail"], axis=1)
     pass_counts = testcase_analysis[testcase_analysis["pass/fail"] == "pass"].agg(["sum"]).drop(["pass/fail"], axis=1)
+    avg_fail = fail_counts.div(num_fail_tests)
 
-    tarantula_scores = (fail_counts/num_fail_tests)/((fail_counts/num_fail_tests)+(pass_counts/num_pass_tests))
-    tarantula_scores = tarantula_scores[tarantula_scores.iloc[0].sort_values(ascending=False).index]
-    return tarantula_scores
+    barinel_score = 1 - (pass_counts/(fail_counts + pass_counts))
+    dstar_boost = max_fail.values/avg_fail.values
+
+    custom_scores = barinel_score.mul((1+ weight*dstar_boost))
+    custom_scores = custom_scores.fillna(0)
+    print(dstar_boost)
+    custom_scores = custom_scores[custom_scores.iloc[0].sort_values(ascending=False).index]
+    return custom_scores
 
 """
 This method is the implementation of the SBFL Barinel algorithm, fitted to work with our data format.
@@ -338,6 +347,7 @@ def barinel(testcase_analysis):
     fail_counts = testcase_analysis[testcase_analysis["pass/fail"] == "fail"].agg(["sum"]).drop(["pass/fail"], axis=1)
 
     barinel_scores = 1 - ((pass_counts)/(fail_counts + pass_counts))
+    barinel_scores = barinel_scores.fillna(0).round(6)
     barinel_scores = barinel_scores[barinel_scores.iloc[0].sort_values(ascending=False).index]
     return barinel_scores
 
@@ -357,6 +367,7 @@ def dstar(testcase_analysis):
     num_fail_tests = len(testcase_analysis[testcase_analysis["pass/fail"] == "fail"])
 
     dstar_scores = (fail_counts**2)/(pass_counts + num_fail_tests)
+    dstar_scores = dstar_scores.fillna(0)
     dstar_scores = dstar_scores[dstar_scores.iloc[0].sort_values(ascending=False).index]
     return dstar_scores
 
@@ -387,3 +398,34 @@ def find_erroneous_gate(forward_mutant, correct_circuit):
         
         if forward_mutant.data[idx].qubits != correct_circuit.data[idx].qubits:
             return idx
+
+"""
+
+""" 
+def calc_exams(sbfl_scores, error_gate, circuit_inverse):
+    faulty_score = None
+
+    for col_name, score in sbfl_scores.items():
+        gate_depth = int(col_name.split()[1])
+
+        if gate_depth == error_gate:
+            faulty_score = score.item()
+            break
+
+    higher = 0
+    equal = 0
+
+    for label, score in sbfl_scores.items():
+
+        if score.item() > faulty_score:
+            higher += 1
+        elif score.item() == faulty_score:
+            equal += 1
+
+    num_gates = circuit_inverse.size()
+
+    best_exam = (higher + 1) / num_gates
+    worst_exam = (higher + equal) / num_gates
+    average_exam = (higher + (equal + 1) / 2) / num_gates
+
+    return best_exam, worst_exam, average_exam
